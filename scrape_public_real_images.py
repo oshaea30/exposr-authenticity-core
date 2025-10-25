@@ -18,6 +18,9 @@ from PIL import Image
 import hashlib
 from bs4 import BeautifulSoup
 import config
+import asyncio
+import subprocess
+import sys
 
 # Setup logging
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL), format=config.LOG_FORMAT)
@@ -128,6 +131,46 @@ class PublicRealImageScraper:
         except Exception as e:
             logger.error(f"Failed to download {url}: {e}")
             return False
+    
+            return False
+    
+    def run_playwright_fallback(self, source: str, count: int) -> int:
+        """Run Playwright fallback scraper for a specific source"""
+        logger.info(f"🔄 Running Playwright fallback for {source}")
+        
+        try:
+            cmd = [
+                sys.executable, 
+                "playwright_real_fallback_scraper.py", 
+                "--count", str(count),
+                "--output", str(self.output_dir),
+                "--source", source
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)  # 30 min timeout
+            
+            if result.returncode == 0:
+                logger.info(f"✅ Playwright fallback for {source} completed successfully")
+                # Parse output to get count
+                output_lines = result.stdout.split('\n')
+                for line in output_lines:
+                    if "Successfully collected" in line and "images" in line:
+                        try:
+                            count_str = line.split("collected ")[1].split(" ")[0]
+                            return int(count_str)
+                        except:
+                            pass
+                return count  # Assume success if no specific count found
+            else:
+                logger.error(f"❌ Playwright fallback for {source} failed: {result.stderr}")
+                return 0
+                
+        except subprocess.TimeoutExpired:
+            logger.error(f"⏰ Playwright fallback for {source} timed out")
+            return 0
+        except Exception as e:
+            logger.error(f"❌ Playwright fallback for {source} error: {str(e)}")
+            return 0
     
     def scrape_wikimedia_commons(self, count: int = 100) -> int:
         """Scrape public domain images from Wikimedia Commons"""
@@ -316,6 +359,278 @@ class PublicRealImageScraper:
         logger.info(f"Collected {collected} images from Librestock")
         return collected
     
+    def scrape_public_domain_archive(self, count: int = 100) -> int:
+        """Scrape images from Public Domain Archive"""
+        logger.info(f"Scraping Public Domain Archive for {count} images")
+        
+        collected = 0
+        base_url = "https://publicdomainarchive.com"
+        
+        try:
+            # Get the main page
+            response = self.session.get(base_url, timeout=30)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find image containers
+            image_containers = soup.find_all('div', class_='image-container')[:count]
+            
+            # If no specific containers, look for img tags
+            if not image_containers:
+                image_containers = soup.find_all('img')[:count]
+            
+            for container in image_containers:
+                if collected >= count:
+                    break
+                    
+                try:
+                    # Extract image URL
+                    if container.name == 'img':
+                        img_url = container.get('src') or container.get('data-src')
+                    else:
+                        img_tag = container.find('img')
+                        img_url = img_tag.get('src') or img_tag.get('data-src') if img_tag else None
+                    
+                    if img_url:
+                        # Convert to full URL if needed
+                        if img_url.startswith('//'):
+                            img_url = 'https:' + img_url
+                        elif img_url.startswith('/'):
+                            img_url = urljoin(base_url, img_url)
+                        elif not img_url.startswith('http'):
+                            img_url = urljoin(base_url, img_url)
+                        
+                        filename = f"pda_{collected:06d}.jpg"
+                        if self.download_image(img_url, filename):
+                            file_size = os.path.getsize(self.output_dir / filename)
+                            self.log_image_metadata(filename, "public_domain_archive", "public_domain", img_url, file_size)
+                            collected += 1
+                            logger.info(f"Downloaded PDA image {collected}/{count}")
+                        
+                        self.rate_limit()
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing PDA image: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error scraping Public Domain Archive: {e}")
+        
+        logger.info(f"Collected {collected} images from Public Domain Archive")
+        
+        # If static scraper failed, try Playwright fallback
+        if collected == 0:
+            logger.warning("🔄 Static scraper failed for Public Domain Archive, trying Playwright fallback...")
+            playwright_count = self.run_playwright_fallback("public_domain_archive", count)
+            collected += playwright_count
+        
+        return collected
+    
+    def scrape_pixnio(self, count: int = 100) -> int:
+        """Scrape images from Pixnio (CC0)"""
+        logger.info(f"Scraping Pixnio for {count} CC0 images")
+        
+        collected = 0
+        base_url = "https://pixnio.com"
+        
+        try:
+            # Get the main page
+            response = self.session.get(base_url, timeout=30)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find image containers
+            image_containers = soup.find_all('div', class_='image-container')[:count]
+            
+            # If no specific containers, look for img tags
+            if not image_containers:
+                image_containers = soup.find_all('img')[:count]
+            
+            for container in image_containers:
+                if collected >= count:
+                    break
+                    
+                try:
+                    # Extract image URL
+                    if container.name == 'img':
+                        img_url = container.get('src') or container.get('data-src')
+                    else:
+                        img_tag = container.find('img')
+                        img_url = img_tag.get('src') or img_tag.get('data-src') if img_tag else None
+                    
+                    if img_url:
+                        # Convert to full URL if needed
+                        if img_url.startswith('//'):
+                            img_url = 'https:' + img_url
+                        elif img_url.startswith('/'):
+                            img_url = urljoin(base_url, img_url)
+                        elif not img_url.startswith('http'):
+                            img_url = urljoin(base_url, img_url)
+                        
+                        filename = f"pixnio_{collected:06d}.jpg"
+                        if self.download_image(img_url, filename):
+                            file_size = os.path.getsize(self.output_dir / filename)
+                            self.log_image_metadata(filename, "pixnio", "cc0", img_url, file_size)
+                            collected += 1
+                            logger.info(f"Downloaded Pixnio image {collected}/{count}")
+                        
+                        self.rate_limit()
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing Pixnio image: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error scraping Pixnio: {e}")
+        
+        logger.info(f"Collected {collected} images from Pixnio")
+        
+        # If static scraper failed, try Playwright fallback
+        if collected == 0:
+            logger.warning("🔄 Static scraper failed for Pixnio, trying Playwright fallback...")
+            playwright_count = self.run_playwright_fallback("pixnio", count)
+            collected += playwright_count
+        
+        return collected
+    
+    def scrape_libreshot(self, count: int = 100) -> int:
+        """Scrape images from LibreShot"""
+        logger.info(f"Scraping LibreShot for {count} images")
+        
+        collected = 0
+        base_url = "https://libreshot.com"
+        
+        try:
+            # Get the main page
+            response = self.session.get(base_url, timeout=30)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find image containers
+            image_containers = soup.find_all('div', class_='image-container')[:count]
+            
+            # If no specific containers, look for img tags
+            if not image_containers:
+                image_containers = soup.find_all('img')[:count]
+            
+            for container in image_containers:
+                if collected >= count:
+                    break
+                    
+                try:
+                    # Extract image URL
+                    if container.name == 'img':
+                        img_url = container.get('src') or container.get('data-src')
+                    else:
+                        img_tag = container.find('img')
+                        img_url = img_tag.get('src') or img_tag.get('data-src') if img_tag else None
+                    
+                    if img_url:
+                        # Convert to full URL if needed
+                        if img_url.startswith('//'):
+                            img_url = 'https:' + img_url
+                        elif img_url.startswith('/'):
+                            img_url = urljoin(base_url, img_url)
+                        elif not img_url.startswith('http'):
+                            img_url = urljoin(base_url, img_url)
+                        
+                        filename = f"libreshot_{collected:06d}.jpg"
+                        if self.download_image(img_url, filename):
+                            file_size = os.path.getsize(self.output_dir / filename)
+                            self.log_image_metadata(filename, "libreshot", "free", img_url, file_size)
+                            collected += 1
+                            logger.info(f"Downloaded LibreShot image {collected}/{count}")
+                        
+                        self.rate_limit()
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing LibreShot image: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error scraping LibreShot: {e}")
+        
+        logger.info(f"Collected {collected} images from LibreShot")
+        
+        # If static scraper failed, try Playwright fallback
+        if collected == 0:
+            logger.warning("🔄 Static scraper failed for LibreShot, trying Playwright fallback...")
+            playwright_count = self.run_playwright_fallback("libreshot", count)
+            collected += playwright_count
+        
+        return collected
+    
+    def scrape_picography(self, count: int = 100) -> int:
+        """Scrape images from Picography"""
+        logger.info(f"Scraping Picography for {count} images")
+        
+        collected = 0
+        base_url = "https://picography.co"
+        
+        try:
+            # Get the main page
+            response = self.session.get(base_url, timeout=30)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Find image containers
+            image_containers = soup.find_all('div', class_='image-container')[:count]
+            
+            # If no specific containers, look for img tags
+            if not image_containers:
+                image_containers = soup.find_all('img')[:count]
+            
+            for container in image_containers:
+                if collected >= count:
+                    break
+                    
+                try:
+                    # Extract image URL
+                    if container.name == 'img':
+                        img_url = container.get('src') or container.get('data-src')
+                    else:
+                        img_tag = container.find('img')
+                        img_url = img_tag.get('src') or img_tag.get('data-src') if img_tag else None
+                    
+                    if img_url:
+                        # Convert to full URL if needed
+                        if img_url.startswith('//'):
+                            img_url = 'https:' + img_url
+                        elif img_url.startswith('/'):
+                            img_url = urljoin(base_url, img_url)
+                        elif not img_url.startswith('http'):
+                            img_url = urljoin(base_url, img_url)
+                        
+                        filename = f"picography_{collected:06d}.jpg"
+                        if self.download_image(img_url, filename):
+                            file_size = os.path.getsize(self.output_dir / filename)
+                            self.log_image_metadata(filename, "picography", "free", img_url, file_size)
+                            collected += 1
+                            logger.info(f"Downloaded Picography image {collected}/{count}")
+                        
+                        self.rate_limit()
+                        
+                except Exception as e:
+                    logger.debug(f"Error processing Picography image: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error scraping Picography: {e}")
+        
+        logger.info(f"Collected {collected} images from Picography")
+        
+        # If static scraper failed, try Playwright fallback
+        if collected == 0:
+            logger.warning("🔄 Static scraper failed for Picography, trying Playwright fallback...")
+            playwright_count = self.run_playwright_fallback("picography", count)
+            collected += playwright_count
+        
+        return collected
+    
     def is_image_file(self, title: str) -> bool:
         """Check if Wikimedia title is an image file"""
         title_lower = title.lower()
@@ -330,8 +645,8 @@ class PublicRealImageScraper:
         
         total_collected = 0
         
-        # Distribute target across sources
-        per_source = target_count // 3
+        # Distribute target across sources (7 sources now)
+        per_source = target_count // 7
         
         # Wikimedia Commons
         wikimedia_count = self.scrape_wikimedia_commons(per_source)
@@ -344,6 +659,22 @@ class PublicRealImageScraper:
         # Librestock
         librestock_count = self.scrape_librestock(per_source)
         total_collected += librestock_count
+        
+        # Public Domain Archive
+        pda_count = self.scrape_public_domain_archive(per_source)
+        total_collected += pda_count
+        
+        # Pixnio
+        pixnio_count = self.scrape_pixnio(per_source)
+        total_collected += pixnio_count
+        
+        # LibreShot
+        libreshot_count = self.scrape_libreshot(per_source)
+        total_collected += libreshot_count
+        
+        # Picography
+        picography_count = self.scrape_picography(per_source)
+        total_collected += picography_count
         
         logger.info(f"Total collected: {total_collected} public domain real images")
         return total_collected
