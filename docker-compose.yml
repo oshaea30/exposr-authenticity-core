@@ -1,0 +1,49 @@
+# Docker Compose configuration for Exposr Authenticity Core
+version: '3.8'
+
+services:
+  exposr-authenticity:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./embeddings:/app/embeddings
+      - ./backups:/app/backups
+    environment:
+      - TRAINING_FREQUENCY=weekly
+      - TRAINING_TIME=02:00
+      - API_HOST=0.0.0.0
+      - API_PORT=5000
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Redis for caching (if needed in future)
+  # redis:
+  #   image: redis:alpine
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+
+  # Optional: PostgreSQL for storing training history (if needed in future)
+  # postgres:
+  #   image: postgres:13
+  #   environment:
+  #     POSTGRES_DB: exposr_authenticity
+  #     POSTGRES_USER: exposr
+  #     POSTGRES_PASSWORD: password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:
