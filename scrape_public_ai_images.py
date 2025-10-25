@@ -18,6 +18,9 @@ from PIL import Image
 import hashlib
 from bs4 import BeautifulSoup
 import config
+import asyncio
+import subprocess
+import sys
 
 # Setup logging
 logging.basicConfig(level=getattr(logging, config.LOG_LEVEL), format=config.LOG_FORMAT)
@@ -121,6 +124,48 @@ class PublicAIImageScraper:
             logger.error(f"Failed to download {url}: {e}")
             return False
     
+    def run_playwright_fallback(self, source: str, count: int) -> int:
+        """Run Playwright fallback scraper for a specific source"""
+        logger.info(f"🔄 Running Playwright fallback for {source}")
+        
+        try:
+            cmd = [
+                sys.executable, 
+                "playwright_fallback_scraper.py", 
+                "--count", str(count),
+                "--output", str(self.output_dir)
+            ]
+            
+            if source == "lexica":
+                cmd.append("--lexica-only")
+            elif source == "artbreeder":
+                cmd.append("--artbreeder-only")
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)  # 30 min timeout
+            
+            if result.returncode == 0:
+                logger.info(f"✅ Playwright fallback for {source} completed successfully")
+                # Parse output to get count (this is a simple approach)
+                output_lines = result.stdout.split('\n')
+                for line in output_lines:
+                    if "Successfully collected" in line and "images" in line:
+                        try:
+                            count_str = line.split("collected ")[1].split(" ")[0]
+                            return int(count_str)
+                        except:
+                            pass
+                return count  # Assume success if no specific count found
+            else:
+                logger.error(f"❌ Playwright fallback for {source} failed: {result.stderr}")
+                return 0
+                
+        except subprocess.TimeoutExpired:
+            logger.error(f"⏰ Playwright fallback for {source} timed out")
+            return 0
+        except Exception as e:
+            logger.error(f"❌ Playwright fallback for {source} error: {str(e)}")
+            return 0
+    
     def scrape_lexica_art(self, count: int = 100) -> int:
         """Scrape AI images from Lexica.art"""
         logger.info(f"Scraping Lexica.art for {count} AI images")
@@ -180,6 +225,13 @@ class PublicAIImageScraper:
             logger.error(f"Error scraping Lexica.art: {e}")
         
         logger.info(f"Collected {collected} images from Lexica.art")
+        
+        # If static scraper failed, try Playwright fallback
+        if collected == 0:
+            logger.warning("🔄 Static scraper failed for Lexica.art, trying Playwright fallback...")
+            playwright_count = self.run_playwright_fallback("lexica", count)
+            collected += playwright_count
+        
         return collected
     
     def scrape_artbreeder(self, count: int = 100) -> int:
@@ -241,6 +293,13 @@ class PublicAIImageScraper:
             logger.error(f"Error scraping Artbreeder: {e}")
         
         logger.info(f"Collected {collected} images from Artbreeder")
+        
+        # If static scraper failed, try Playwright fallback
+        if collected == 0:
+            logger.warning("🔄 Static scraper failed for Artbreeder, trying Playwright fallback...")
+            playwright_count = self.run_playwright_fallback("artbreeder", count)
+            collected += playwright_count
+        
         return collected
     
     def scrape_reddit_midjourney(self, count: int = 100) -> int:

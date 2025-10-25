@@ -1,0 +1,39 @@
+{
+  "created_at": "2025-10-25T00:27:53.709461",
+  "total_images": 14,
+  "ai_images": 12,
+  "real_images": 2,
+  "metadata_entries": 46,
+  "collection_log": [
+    {
+      "timestamp": "2025-10-25T00:26:46.759548",
+      "event_type": "collection_real",
+      "message": "Successfully collected real images",
+      "data": {
+        "count": 500,
+        "stdout": "\u2705 Successfully collected 2 public domain real images\n\ud83d\udcc1 Images saved to data/real\n\ud83d\udccb Metadata logged to dataset_log.csv\n"
+      }
+    },
+    {
+      "timestamp": "2025-10-25T00:27:45.469442",
+      "event_type": "collection_ai",
+      "message": "Successfully collected AI images",
+      "data": {
+        "count": 500,
+        "stdout": "\u2705 Successfully collected 12 AI-generated images\n\ud83d\udcc1 Images saved to data/ai\n\ud83d\udccb Metadata logged to dataset_log.csv\n"
+      }
+    }
+  ],
+  "embedding_log": [
+    {
+      "timestamp": "2025-10-25T00:27:53.702595",
+      "event_type": "embedding_generation",
+      "message": "Successfully generated embeddings",
+      "data": {
+        "version": "continuous_collection",
+        "stdout": "\u2705 Successfully generated embeddings for 12 AI images and 2 real images\n\ud83d\udcc1 Embeddings saved to embeddings/embeddings_vcontinuous_collection_20251025_002753.npy\n\ud83d\udccb Metadata saved to embeddings/embeddings_vcontinuous_collection_20251025_002753.json\n\ud83d\udd22 Pipeline version: continuous_collection\n"
+      }
+    }
+  ],
+  "pipeline_version": "1.0"
+}

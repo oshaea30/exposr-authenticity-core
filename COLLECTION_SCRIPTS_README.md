@@ -21,8 +21,18 @@ This collection of scripts scrapes **only public domain and license-free images*
 - **Lexica.art** - AI art search engine (Stable Diffusion)
 - **Artbreeder** - AI art platform (public gallery)
 - **Reddit r/midjourney** - Public Midjourney posts
+- **🆕 Playwright Fallback** - Automatic fallback for JavaScript-rendered content
 
-### 3. `collect_and_embed.py`
+### 3. `playwright_fallback_scraper.py` 🆕
+
+**Advanced JavaScript Scraper:**
+
+- **Headless Browser** - Handles dynamic content loading
+- **Lexica.art** - Scrolls and extracts images from JavaScript galleries
+- **Artbreeder** - Navigates complex gallery interfaces
+- **Automatic Activation** - Runs when static scrapers fail
+
+### 4. `collect_and_embed.py`
 
 **Master script that:**
 
@@ -59,7 +69,14 @@ This collection of scripts scrapes **only public domain and license-free images*
 - ✅ Duplicate detection via content hashing
 - ✅ Error handling for broken images/missing tags
 
-### **Pipeline Integration**
+### **🆕 Playwright Fallback System**
+
+- ✅ **Automatic Detection** - Runs when static scrapers collect 0 images
+- ✅ **Headless Browser** - Handles JavaScript-rendered content
+- ✅ **Smart Scrolling** - Scrolls pages 3-5 times to load dynamic content
+- ✅ **Image Extraction** - Filters for .jpg/.png images only
+- ✅ **Error Handling** - Logs skipped images and handles failures gracefully
+- ✅ **Rate Limiting** - Respects website limits (2-4 seconds between requests)
 
 - ✅ Automatic embedding generation after collection
 - ✅ Dataset manifest with collection statistics
@@ -104,6 +121,9 @@ python embed_images.py --version 1.0
 ```bash
 # Test the complete pipeline with small samples
 python test_collection_pipeline.py
+
+# Test Playwright fallback integration
+python test_playwright_fallback.py
 ```
 
 ## 📊 Expected Output
