@@ -99,6 +99,20 @@ class PublicRealImageScraper:
         except Exception:
             return ""
     
+    def get_next_filename(self, prefix: str, extension: str = '.jpg') -> str:
+        """Generate next available filename to avoid collisions"""
+        counter = 0
+        while True:
+            filename = f"{prefix}_{counter:06d}{extension}"
+            if not (self.output_dir / filename).exists():
+                return filename
+            counter += 1
+            # Safety limit to prevent infinite loops
+            if counter > 999999:
+                # Use timestamp as fallback
+                import time
+                return f"{prefix}_{int(time.time())}{extension}"
+    
     def download_image(self, url: str, filename: str) -> bool:
         """Download image from URL with validation"""
         try:
@@ -219,7 +233,7 @@ class PublicRealImageScraper:
                             # Get file info
                             file_url = self.get_wikimedia_file_url(title)
                             if file_url:
-                                filename = f"wikimedia_{collected:06d}.jpg"
+                                filename = self.get_next_filename("wikimedia")
                                 if self.download_image(file_url, filename):
                                     file_size = os.path.getsize(self.output_dir / filename)
                                     self.log_image_metadata(filename, "wikimedia_commons", "public_domain", file_url, file_size)
@@ -294,7 +308,7 @@ class PublicRealImageScraper:
                             if 'thumb' in img_url:
                                 img_url = img_url.replace('thumb/', '').replace('/thumb', '')
                             
-                            filename = f"rawpixel_{collected:06d}.jpg"
+                            filename = self.get_next_filename("rawpixel")
                             if self.download_image(img_url, filename):
                                 file_size = os.path.getsize(self.output_dir / filename)
                                 self.log_image_metadata(filename, "rawpixel", "public_domain", img_url, file_size)
@@ -340,7 +354,7 @@ class PublicRealImageScraper:
                         # Get full URL
                         img_url = urljoin(base_url, href)
                         
-                        filename = f"librestock_{collected:06d}.jpg"
+                        filename = self.get_next_filename("librestock")
                         if self.download_image(img_url, filename):
                             file_size = os.path.getsize(self.output_dir / filename)
                             self.log_image_metadata(filename, "librestock", "free", img_url, file_size)
@@ -401,7 +415,7 @@ class PublicRealImageScraper:
                         elif not img_url.startswith('http'):
                             img_url = urljoin(base_url, img_url)
                         
-                        filename = f"pda_{collected:06d}.jpg"
+                        filename = self.get_next_filename("pda")
                         if self.download_image(img_url, filename):
                             file_size = os.path.getsize(self.output_dir / filename)
                             self.log_image_metadata(filename, "public_domain_archive", "public_domain", img_url, file_size)
@@ -469,7 +483,7 @@ class PublicRealImageScraper:
                         elif not img_url.startswith('http'):
                             img_url = urljoin(base_url, img_url)
                         
-                        filename = f"pixnio_{collected:06d}.jpg"
+                        filename = self.get_next_filename("pixnio")
                         if self.download_image(img_url, filename):
                             file_size = os.path.getsize(self.output_dir / filename)
                             self.log_image_metadata(filename, "pixnio", "cc0", img_url, file_size)
@@ -537,7 +551,7 @@ class PublicRealImageScraper:
                         elif not img_url.startswith('http'):
                             img_url = urljoin(base_url, img_url)
                         
-                        filename = f"libreshot_{collected:06d}.jpg"
+                        filename = self.get_next_filename("libreshot")
                         if self.download_image(img_url, filename):
                             file_size = os.path.getsize(self.output_dir / filename)
                             self.log_image_metadata(filename, "libreshot", "free", img_url, file_size)
@@ -606,7 +620,7 @@ class PublicRealImageScraper:
                         elif not img_url.startswith('http'):
                             img_url = urljoin(base_url, img_url)
                         
-                        filename = f"picography_{collected:06d}.jpg"
+                        filename = self.get_next_filename("picography")
                         if self.download_image(img_url, filename):
                             file_size = os.path.getsize(self.output_dir / filename)
                             self.log_image_metadata(filename, "picography", "free", img_url, file_size)
