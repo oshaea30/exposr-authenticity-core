@@ -40,8 +40,8 @@ class PublicRealImageScraper:
         self.init_metadata_file()
         
         # Rate limiting
-        self.min_delay = 1.0
-        self.max_delay = 2.0
+        self.min_delay = 0.5
+        self.max_delay = 1.0
         
     def init_metadata_file(self):
         """Initialize metadata CSV file if it doesn't exist"""
@@ -555,10 +555,11 @@ class PublicRealImageScraper:
         
         logger.info(f"Collected {collected} images from LibreShot")
         
-        # If static scraper failed, try Playwright fallback
-        if collected == 0:
-            logger.warning("🔄 Static scraper failed for LibreShot, trying Playwright fallback...")
-            playwright_count = self.run_playwright_fallback("libreshot", count)
+        # Always try Playwright fallback for better results
+        if collected < count:
+            logger.warning(f"🔄 Static scraper collected {collected}/{count}. Using Playwright fallback for more...")
+            remaining = count - collected
+            playwright_count = self.run_playwright_fallback("libreshot", remaining)
             collected += playwright_count
         
         return collected
@@ -646,7 +647,7 @@ class PublicRealImageScraper:
         total_collected = 0
         
         # Distribute target across sources (7 sources now)
-        per_source = target_count // 7
+        per_source = max(1, target_count // 7)  # Ensure at least 1 per source
         
         # Wikimedia Commons
         wikimedia_count = self.scrape_wikimedia_commons(per_source)
