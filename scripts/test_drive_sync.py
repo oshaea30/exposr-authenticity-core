@@ -2,9 +2,13 @@
 Test script for Google Drive sync functionality
 """
 import sys
-sys.path.insert(0, '.')
+import os
+from pathlib import Path
 
-from sync_drive import DriveSync
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from scripts.sync_drive import DriveSync
 
 def main():
     """Test Drive sync with example folder"""
@@ -33,7 +37,7 @@ def main():
     
     print(f"\n📊 Found {len(files)} files:")
     for i, file in enumerate(files[:10], 1):  # Show first 10
-        size = int(file.get('size', 0))
+        size = int(file.get('size', 0)) if file.get('size') else 0
         size_str = f"{size / 1024:.1f}KB" if size < 1024*1024 else f"{size / (1024*1024):.1f}MB"
         print(f"  {i}. {file['name']} ({file['mimeType']}) - {size_str}")
     
@@ -42,9 +46,10 @@ def main():
     
     # Download first 5 supported files
     print("\n⬇️  Downloading first 5 supported files...")
+    supported_extensions = {'.jpg', '.jpeg', '.png', '.mp4', '.pdf'}
     supported_files = [
         f for f in files 
-        if any(f['name'].lower().endswith(ext) for ext in sync.SUPPORTED_EXTENSIONS)
+        if any(f['name'].lower().endswith(ext) for ext in supported_extensions)
     ][:5]
     
     for file in supported_files:
@@ -53,10 +58,11 @@ def main():
         sync.download_file(file['id'], filename, file_type)
     
     # Show log
-    print(f"\n📋 Checking log file: {sync.LOG_FILE}")
-    if os.path.exists(sync.LOG_FILE):
+    log_file = 'gdrive_sync_log.csv'
+    print(f"\n📋 Checking log file: {log_file}")
+    if os.path.exists(log_file):
         print("Recent downloads:")
-        with open(sync.LOG_FILE, 'r') as f:
+        with open(log_file, 'r') as f:
             lines = f.readlines()[-6:]  # Last 6 lines
             for line in lines:
                 print(f"  {line.strip()}")
