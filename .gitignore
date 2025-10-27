@@ -103,3 +103,17 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+# Auth tokens
+auth/token.json
+token.json
+token.pickle
+
+# Service account keys
+exposr-training-*.json
+
+# Logs
+gdrive_sync_log.csv
+upload_log.csv
+
+# Synced data
+training_data/
